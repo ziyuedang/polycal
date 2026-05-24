@@ -54,13 +54,13 @@ When you encounter a decision point during a session, do NOT make it silently. E
 
 **Decision**: Ceres Solver.
 **Rationale**: GTSAM's main advantage is native factor graph support, which is no longer needed given ADR-001. Ceres is sufficient for the optimization substeps polycal requires and has broader familiarity.
-**Consequences**: C++ estimator layer will depend on Ceres.
+**Consequences**: C++ estimator layer will depend on Ceres. Core EKF layer uses Eigen + Sophus only. Ceres is an optional dependency for initialization and front-end refinement, introduced when ADR-003 defines a concrete nonlinear subproblem requiring it. Do not add Ceres as a required dependency until that subproblem is specified.
 
 ---
 
 ## ADR-003: Primary observation model for streaming estimation
 
-**Status**: Open
+**Status**: Resolved (2026-05-23)
 
 **Context**: The recursive estimator needs at least one observation type at runtime. Choice affects data requirements and failure modes.
 
@@ -70,7 +70,19 @@ When you encounter a decision point during a session, do NOT make it silently. E
 3. **Mutual information** (Pandey et al. 2012) — image gradients vs LiDAR reflectivity. Robust to scene type. Slow to converge, more complex.
 4. **Hybrid** — multiple observation types combined via factor weights.
 
-**Decision**: Pending. Recommendation for V1: motion-based, then add edge-based in V2.
+**Decision**: Motion-based hand-eye calibration for Phase 1. Edge-based added in Phase 2.
+**Rationale**:
+- Current synthetic generator already emits per-sensor trajectories and correspondences. Motion-based slots in directly without generator changes.
+- Cleaner measurement Jacobian for first EKF implementation — easier to validate correctness on synthetic data.
+- Edge-based requires a real image edge detector and LiDAR discontinuity front-end, which cannot be validated on the current synthetic output. Premature before estimator is validated.
+- Precedent: Mishra & Saripalli 2022, Wang et al. 2025 both use motion-based for EKF online calibration.
+- Degenerate cases (constant velocity) are handled by motion excitation requirements documented in data collection guidelines, not by switching observation models.
+
+**Consequences**:
+- Phase 1 synthetic generator extension needed: add per-sensor odometry trajectory output (camera visual odometry, LiDAR ICP odometry) with configurable noise and degeneracy injection.
+- Measurement Jacobian is the relative motion constraint H: SE(3) x SE(3) -> SE(3), linearized around current estimate.
+- Edge-based remains the Phase 2 target. Hybrid is the long-term architecture.
+- ADR-003 resolution unblocks Phase 1 estimator implementation.
 
 ---
 
@@ -118,5 +130,21 @@ When you encounter a decision point during a session, do NOT make it silently. E
 4. **Variance recalibration via auxiliary regression** — learn σ correction as function of state.
 
 **Decision**: Pending. Recommendation: start with Option 3 (conformal-style on residuals), Option 1 as ablation baseline.
+
+---
+
+## ADR-007: SE(3) frame conventions and perturbation side
+
+**Status**: Open
+
+**Context**: Before any C++ estimator code is written, the exact geometric conventions must be documented and used consistently everywhere. Ambiguity here causes silent sign errors that are extremely hard to debug.
+
+**Decisions needed**:
+- T_lc direction: is T_lc LiDAR-to-camera or camera-to-LiDAR? Must be consistent across synthetic.py, metrics.py, and estimator.
+- Perturbation side: left perturbation (T_lc * exp(δ)) or right perturbation (exp(δ) * T_lc)?
+- Euler angle order for reporting: matches Cocheteux Fig. 2 — X/Y/Z translation, then Roll/Pitch/Yaw rotation in LiDAR frame.
+- Rotation representation in EKF state: rotation vector (so(3)) or quaternion?
+
+**Decision**: Pending. Must resolve before Phase 1 C++ work begins.
 
 ---

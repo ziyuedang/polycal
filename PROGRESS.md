@@ -4,6 +4,65 @@ Log of work sessions on polycal. Newest entry on top. See `AGENTS.md` §7 for en
 
 ---
 
+## 2026-05-23 — codex — Resolve ADR-003 observation model
+
+**Worked on**: Resolved ADR-003 to motion-based hand-eye.
+
+**Completed**:
+- Updated ADR-003 status to `Resolved (2026-05-23)`.
+- Selected motion-based hand-eye calibration for Phase 1 and edge-based calibration for Phase 2.
+- Added rationale covering synthetic-data fit, cleaner first EKF Jacobian, edge-front-end deferral, literature precedent, and motion-excitation handling for degeneracy.
+- Added consequences for Phase 1 synthetic odometry trajectory output, relative-motion Jacobian, Phase 2 edge-based target, and estimator unblocking.
+
+**Attempted but did not work**:
+- None.
+
+**Decisions made**:
+- ADR-003: Motion-based hand-eye calibration for Phase 1; edge-based added in Phase 2.
+
+**Open questions raised**:
+- None.
+
+**Next session — priorities in order**:
+1. Resolve ADR-007 before C++ estimator code.
+2. Extend the synthetic generator with noisy camera visual odometry and LiDAR ICP odometry trajectories.
+3. Begin Phase 1 EKF estimator implementation after ADR-007 is resolved.
+
+**Files touched**:
+- `DECISIONS.md`
+- `PROGRESS.md`
+
+---
+
+## 2026-05-23 — codex — ADR-002 consequence amendment and ADR-007
+
+**Worked on**: Amended ADR-002 consequences, added ADR-007.
+
+**Completed**:
+- Appended ADR-002 consequences clarifying that the core EKF layer uses Eigen + Sophus only.
+- Clarified in ADR-002 that Ceres is optional for initialization/front-end refinement and must not become required until ADR-003 specifies a concrete nonlinear subproblem.
+- Added ADR-007 for SE(3) frame conventions and perturbation side.
+
+**Attempted but did not work**:
+- None.
+
+**Decisions made**:
+- None.
+
+**Open questions raised**:
+- ADR-007: T_lc direction, perturbation side, Euler reporting order, and EKF rotation representation must be resolved before Phase 1 C++ work.
+
+**Next session — priorities in order**:
+1. Resolve ADR-003 before estimator implementation.
+2. Resolve ADR-007 before any C++ estimator code.
+3. Commit current documentation, ADR, CI, metrics, and tests changes if requested.
+
+**Files touched**:
+- `DECISIONS.md`
+- `PROGRESS.md`
+
+---
+
 ## 2026-05-23 — codex — Task 4 README v0.1
 
 **Worked on**: Created `README.md` with the user-provided v0.1 project content, replacing `<your-handle>` with `ziyuedang`.
