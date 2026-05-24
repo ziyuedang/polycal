@@ -135,7 +135,7 @@ When you encounter a decision point during a session, do NOT make it silently. E
 
 ## ADR-007: SE(3) frame conventions and perturbation side
 
-**Status**: Open
+**Status**: Resolved (2026-05-23)
 
 **Context**: Before any C++ estimator code is written, the exact geometric conventions must be documented and used consistently everywhere. Ambiguity here causes silent sign errors that are extremely hard to debug.
 
@@ -145,6 +145,29 @@ When you encounter a decision point during a session, do NOT make it silently. E
 - Euler angle order for reporting: matches Cocheteux Fig. 2 — X/Y/Z translation, then Roll/Pitch/Yaw rotation in LiDAR frame.
 - Rotation representation in EKF state: rotation vector (so(3)) or quaternion?
 
-**Decision**: Pending. Must resolve before Phase 1 C++ work begins.
+**Decision**:
+1. T_lc direction: LiDAR-to-camera. p_c = T_lc * p_l. Consistent everywhere: synthetic.py, metrics.py, estimator.
+
+2. Perturbation side: right/local perturbation.
+   T_lc <- T_lc * Exp(δ)
+   δ is a 6D tangent vector in the LiDAR body frame.
+   Do NOT use left perturbation. Do NOT use the term "left perturbation" anywhere in the codebase.
+
+3. Reporting order: [X_cm, Y_cm, Z_cm, Roll_deg, Pitch_deg, Yaw_deg]. Matches Cocheteux Fig. 2 and existing metrics.py DOF order.
+
+4. EKF state error: 6D tangent vector [rho ∈ R³, phi ∈ R³].
+   rho: translation perturbation in meters.
+   phi: rotation perturbation as so(3) rotation vector in radians.
+   Internal units are always meters and radians.
+   Convert to cm and degrees ONLY at the reporting layer (when calling picp, mpiw, interval_score).
+
+5. Exp/Log maps: use Sophus SE3d::exp() and SE3d::log() exclusively. No custom Lie group implementations anywhere in the codebase.
+
+**Rationale**: Right/local perturbation is preferred over left because the hand-eye measurement constraint is naturally expressed in the sensor body frame, yielding a cleaner Jacobian. Convention follows Sola et al. "A micro Lie theory" (2018).
+
+**Consequences**:
+- synthetic.py must be audited to confirm T_lc convention matches p_c = T_lc * p_l before Phase 1 estimator begins.
+- All C++ estimator code uses Sophus SE3d. No raw rotation matrices or quaternions in the EKF state.
+- Unit conversion happens at API boundary only.
 
 ---

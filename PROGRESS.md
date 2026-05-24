@@ -4,6 +4,38 @@ Log of work sessions on polycal. Newest entry on top. See `AGENTS.md` §7 for en
 
 ---
 
+## 2026-05-23 — codex — Resolve ADR-007 SE3 conventions
+
+**Worked on**: Resolved ADR-007 (SE3 frame conventions).
+
+**Completed**:
+- Updated ADR-007 status to `Resolved (2026-05-23)`.
+- Recorded `T_lc` as LiDAR-to-camera with `p_c = T_lc * p_l`.
+- Recorded right/local perturbation with `T_lc <- T_lc * Exp(δ)` and δ in the LiDAR body frame.
+- Recorded reporting order `[X_cm, Y_cm, Z_cm, Roll_deg, Pitch_deg, Yaw_deg]`.
+- Recorded EKF state error as `[rho, phi]`, with internal units meters and radians and reporting conversions only at the API boundary.
+- Recorded Sophus `SE3d::exp()` and `SE3d::log()` as the exclusive Exp/Log implementation.
+
+**Attempted but did not work**:
+- None.
+
+**Decisions made**:
+- ADR-007: LiDAR-to-camera `T_lc`, right/local perturbation, Cocheteux-compatible reporting order, tangent-vector EKF error state, and Sophus-only Exp/Log maps.
+
+**Open questions raised**:
+- None.
+
+**Next session — priorities in order**:
+1. Audit `synthetic.py` for `T_lc` convention before Phase 1 estimator work.
+2. Extend the synthetic generator with noisy camera visual odometry and LiDAR ICP odometry trajectories.
+3. Begin Phase 1 EKF estimator implementation.
+
+**Files touched**:
+- `DECISIONS.md`
+- `PROGRESS.md`
+
+---
+
 ## 2026-05-23 — codex — Resolve ADR-003 observation model
 
 **Worked on**: Resolved ADR-003 to motion-based hand-eye.
