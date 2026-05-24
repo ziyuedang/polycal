@@ -4,6 +4,69 @@ Log of work sessions on polycal. Newest entry on top. See `AGENTS.md` §7 for en
 
 ---
 
+## 2026-05-23 — codex — Task 4 README v0.1
+
+**Worked on**: Created `README.md` with the user-provided v0.1 project content, replacing `<your-handle>` with `ziyuedang`.
+
+**Completed**:
+- Added `README.md` with project positioning, classical-vs-learning comparison, status table, installation block, references, and Apache-2.0 license note.
+- Did not implement or modify estimator code.
+
+**Attempted but did not work**:
+- None.
+
+**Decisions made**:
+- None.
+
+**Open questions raised**:
+- None.
+
+**Next session — priorities in order**:
+1. Commit current documentation, ADR, CI, metrics, and tests changes if requested.
+2. Resolve ADR-003 before starting estimator implementation.
+3. Begin Phase 1 EKF estimator work only after the observation model is decided.
+
+**Files touched**:
+- `PROGRESS.md`
+- `README.md`
+
+---
+
+## 2026-05-23 — codex — Resolve estimator and optimizer ADRs
+
+**Worked on**: Resolved ADR-001 and ADR-002.
+
+**Completed**:
+- Updated ADR-001 status to `Resolved (2026-05-23)` with EKF as the selected recursive estimator architecture.
+- Added ADR-001 rationale: EKF is sufficient for slow thermal/mechanical drift, lower complexity than factor graph, linearization error is not expected to be limiting, with Mishra & Saripalli 2022 and Wang et al. 2025 as precedent.
+- Updated ADR-001 consequences: ADR-002 can now be resolved, and factor graph remains an upgrade path if empirical results identify linearization error as the bottleneck.
+- Updated ADR-002 status to `Resolved (2026-05-23)` with Ceres Solver selected.
+- Added ADR-002 rationale: GTSAM's factor graph advantage is no longer needed after ADR-001, while Ceres is sufficient and broadly familiar.
+- Updated ADR-002 consequences: C++ estimator layer will depend on Ceres.
+- Updated `AGENTS.md` §4 tech stack from pending Ceres/GTSAM choice to C++17, Eigen, Ceres Solver.
+
+**Attempted but did not work**:
+- None.
+
+**Decisions made**:
+- ADR-001: EKF (Extended Kalman Filter).
+- ADR-002: Ceres Solver.
+
+**Open questions raised**:
+- None.
+
+**Next session — priorities in order**:
+1. Commit current ADR, metrics, tests, and CI changes if requested.
+2. **Task 4**: write README v0.1.
+3. Start estimator design only after confirming the intended EKF observation model from still-open ADR-003.
+
+**Files touched**:
+- `AGENTS.md`
+- `DECISIONS.md`
+- `PROGRESS.md`
+
+---
+
 ## 2026-05-23 — codex — Task 3 GitHub Actions CI
 
 **Worked on**: Added the GitHub Actions CI workflow for Python tests on macOS 14 and Ubuntu 24.04. Updated the existing `dev` optional dependencies to explicitly include pytest, numpy, scipy, and matplotlib as requested.

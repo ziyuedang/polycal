@@ -26,7 +26,7 @@ When you encounter a decision point during a session, do NOT make it silently. E
 
 ## ADR-001: Recursive estimator architecture
 
-**Status**: Open
+**Status**: Resolved (2026-05-23)
 
 **Context**: Polycal needs a stateful estimator over the 6-DOF extrinsic. Choice has downstream consequences for library selection, code structure, and how covariance is handled.
 
@@ -34,15 +34,16 @@ When you encounter a decision point during a session, do NOT make it silently. E
 1. **Continuous EKF** — lightweight, naturally recursive, covariance directly available, deployable on embedded hardware. Downsides: linearization error accumulates with no re-linearization of past states; classical overconfidence in reported covariance.
 2. **Sliding-window factor graph** — re-linearizes within window, naturally extends to batch refinement, well-studied in SLAM. Downsides: heavier compute, covariance via marginalization is non-trivial, requires GTSAM or custom Ceres setup.
 
-**Decision**: Pending.
+**Decision**: EKF (Extended Kalman Filter).
+**Rationale**: Sufficient for slow thermal/mechanical drift operating regime. Lower complexity than factor graph. Linearization error is not a meaningful limitation for polycal's use case. Precedent: Mishra & Saripalli 2022, Wang et al. 2025.
 
-**Consequences**: Determines ADR-002 (optimization library) and shapes the estimator API.
+**Consequences**: Enables ADR-002 resolution. Factor graph upgrade path remains open if empirical results show linearization error is the bottleneck.
 
 ---
 
 ## ADR-002: Optimization library
 
-**Status**: Open (depends on ADR-001)
+**Status**: Resolved (2026-05-23)
 
 **Context**: Need a nonlinear least squares / smoothing library.
 
@@ -51,7 +52,9 @@ When you encounter a decision point during a session, do NOT make it silently. E
 2. **GTSAM** (Georgia Tech) — factor graph native, ISAM2 for incremental smoothing, natural fit for sliding-window.
 3. **g2o** — popular in older SLAM stacks, less actively maintained.
 
-**Decision**: Pending ADR-001.
+**Decision**: Ceres Solver.
+**Rationale**: GTSAM's main advantage is native factor graph support, which is no longer needed given ADR-001. Ceres is sufficient for the optimization substeps polycal requires and has broader familiarity.
+**Consequences**: C++ estimator layer will depend on Ceres.
 
 ---
 

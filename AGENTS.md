@@ -54,7 +54,7 @@ If a session naturally drifts toward any of these, stop and flag it in `PROGRESS
 
 ## 4. Technical stack
 
-- **Core**: C++17, Eigen, optimization library (Ceres or GTSAM — decision pending; check `PROGRESS.md`).
+- **Core**: C++17, Eigen, Ceres Solver.
 - **Geometry**: Sophus for SE(3) / SO(3). Do NOT roll custom Lie group code.
 - **Python interop**: pybind11.
 - **Build**: CMake (modern target-based, `FetchContent` for non-system deps).
