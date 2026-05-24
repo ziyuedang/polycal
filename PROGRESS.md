@@ -4,6 +4,119 @@ Log of work sessions on polycal. Newest entry on top. See `AGENTS.md` §7 for en
 
 ---
 
+## 2026-05-23 — codex — Task 3 GitHub Actions CI
+
+**Worked on**: Added the GitHub Actions CI workflow for Python tests on macOS 14 and Ubuntu 24.04. Updated the existing `dev` optional dependencies to explicitly include pytest, numpy, scipy, and matplotlib as requested.
+
+**Completed**:
+- Created `.github/workflows/ci.yml` with `push` and `pull_request` triggers for `main`.
+- Added a matrix over `macos-14` and `ubuntu-24.04`.
+- Configured `actions/checkout@v4` and `actions/setup-python@v5` with Python `3.11`.
+- Added Ubuntu system dependency install: `cmake`, `build-essential`, `libeigen3-dev`.
+- Added macOS system dependency install: `cmake`, `eigen`.
+- Added `pip install -e ".[dev]"`.
+- Added `pytest python/tests/ -v`.
+- Confirmed workflow file has no tabs.
+- Confirmed workflow file parses as YAML with Ruby `YAML.load_file`.
+- Verified `.venv/bin/pytest python/tests/ -v` passes locally: 22 passed.
+- Confirmed `pyproject.toml` `dev` extras contain `pytest`, `numpy`, `scipy`, and `matplotlib`.
+
+**Attempted but did not work**:
+- Tried to inspect `pyproject.toml` with Python `tomllib`, but the local `.venv` uses Python 3.9 and `tomllib` is only standard in Python 3.11+. Used direct file inspection instead.
+
+**Decisions made**:
+- Kept runtime `numpy` and `scipy` dependencies in `[project.dependencies]` and also listed them in `[project.optional-dependencies].dev` to satisfy the explicit CI task requirement.
+- Did not add C++ configure/build steps because this task's requested workflow steps did not include them and no C++ tree exists yet.
+
+**Open questions raised**:
+- None.
+
+**Next session — priorities in order**:
+1. Commit Task 2 and Task 3 changes if requested.
+2. **Task 4**: write README v0.1.
+3. Resolve or keep tracking ADR-001 through ADR-005 before estimator/C++ work.
+
+**Files touched**:
+- `.github/workflows/ci.yml`
+- `PROGRESS.md`
+- `pyproject.toml`
+
+---
+
+## 2026-05-23 — codex — Metrics test coverage replacement
+
+**Worked on**: Replaced `python/tests/test_metrics.py` with the requested focused coverage for PICP, MPIW, interval score, Gaussian sanity, and validation behavior. Did not touch metric implementation or other source files.
+
+**Completed**:
+- Added `test_picp_all_covered`.
+- Added `test_picp_none_covered`.
+- Added `test_picp_single_sample`.
+- Added `test_mpiw_constant_width`.
+- Added `test_mpiw_single_sample`.
+- Added `test_interval_score_no_penalty`.
+- Added `test_interval_score_penalty`.
+- Added `test_interval_score_single_sample`.
+- Added `test_gaussian_coverage_sanity`.
+- Added `test_shapes_enforced`.
+- Verified `.venv/bin/pytest python/tests/test_metrics.py` passes: 10 passed.
+
+**Attempted but did not work**:
+- None.
+
+**Decisions made**:
+- Used fixed RNG seed `0` for the Gaussian coverage sanity test with `N=2000` and intervals `[-1.645, 1.645]`.
+- Kept tests at package API level via `from polycal import interval_score, mpiw, picp`.
+
+**Open questions raised**:
+- None.
+
+**Next session — priorities in order**:
+1. Commit the Task 2 metrics/test changes if requested.
+2. **Task 3**: add `.github/workflows/ci.yml`.
+3. **Task 4**: write README v0.1.
+
+**Files touched**:
+- `PROGRESS.md`
+- `python/tests/test_metrics.py`
+
+---
+
+## 2026-05-23 — codex — Task 2 metrics module
+
+**Worked on**: Implemented the Python evaluation metrics for Cocheteux-style interval benchmarking and exported them from the package API. Added focused pytest coverage for formulas, validation, and Gaussian coverage sanity.
+
+**Completed**:
+- Added `python/polycal/metrics.py` with `picp`, `mpiw`, and `interval_score`.
+- Updated `python/polycal/__init__.py` to export `picp`, `mpiw`, and `interval_score`.
+- Added `python/tests/test_metrics.py` with hand-computed expected values, all-in/all-out edge cases, single-sample behavior, invalid-input checks, and a 90% Gaussian interval sanity test.
+- Verified `.venv/bin/pytest python/tests/test_metrics.py` passes: 7 passed.
+- Verified `.venv/bin/pytest python/tests` passes: 19 passed.
+- Verified package-level imports for `picp`, `mpiw`, and `interval_score`.
+
+**Attempted but did not work**:
+- None.
+
+**Decisions made**:
+- Treated interval bounds as inclusive for coverage: `lower <= y <= upper`.
+- Added input validation for shape `(N, 6, 2)`, matching ground-truth shape `(N, 6)`, non-empty sample count, ordered bounds, and `alpha` in `(0, 1)`.
+- Preserved the DOF order `[X_cm, Y_cm, Z_cm, Roll_deg, Pitch_deg, Yaw_deg]` in docstrings and tests.
+
+**Open questions raised**:
+- None.
+
+**Next session — priorities in order**:
+1. **Task 3**: add `.github/workflows/ci.yml`.
+2. **Task 4**: write README v0.1.
+3. Commit Task 2 changes if requested.
+
+**Files touched**:
+- `PROGRESS.md`
+- `python/polycal/__init__.py`
+- `python/polycal/metrics.py`
+- `python/tests/test_metrics.py`
+
+---
+
 ## 2026-05-23 — codex — Task 1 synthetic data generator
 
 **Worked on**: Implemented the Python-only synthetic LiDAR-camera observation generator, tests, deterministic dataset persistence, and demo scripts for Phase 0 Task 1. Stayed out of estimator/C++ work and did not begin Task 2.

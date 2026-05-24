@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from polycal.metrics import interval_score, mpiw, picp
 from polycal.synthetic import (
     CameraModel,
     LidarModel,
@@ -32,5 +33,8 @@ __all__ = [
     "SyntheticDataset",
     "Correspondence",
     "generate",
+    "picp",
+    "mpiw",
+    "interval_score",
     "__version__",
 ]
