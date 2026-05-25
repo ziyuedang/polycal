@@ -5,3 +5,5 @@ __pycache__/
 *.pyc
 *.egg-info/
 .DS_Store
+cpp/buid
+cpp/build/

@@ -4,6 +4,86 @@ Log of work sessions on polycal. Newest entry on top. See `AGENTS.md` §7 for en
 
 ---
 
+## 2026-05-24 — codex — Numerical EKF Jacobian validation
+
+**Worked on**: Added a Python finite-difference test for the Phase 1 EKF hand-eye Jacobian under the right/local SE(3) perturbation convention.
+
+**Completed**:
+- Added `python/tests/test_jacobian_numerical.py` with local SE(3) Exp/Log/Adjoint helpers.
+- Added numerical residual finite-difference validation against `H = Ad_T_lc * (Ad_T_lidar_odom^{-1} - I)`.
+- Verified `.venv/bin/pytest python/tests/test_jacobian_numerical.py -v` passes.
+- `test_jacobian_config_1` passed.
+- `test_jacobian_config_2` passed.
+- `test_jacobian_config_3` passed.
+
+**Attempted but did not work**:
+- None.
+
+**Decisions made**:
+- None.
+
+**Open questions raised**:
+- None.
+
+**Next session — priorities in order**:
+1. Wire the numerical Jacobian validation into broader CI if desired.
+2. Audit `synthetic.py` for `T_lc` convention before Phase 1 estimator work.
+3. Extend the synthetic generator with noisy camera visual odometry and LiDAR ICP odometry trajectories.
+
+**Files touched**:
+- `PROGRESS.md`
+- `python/tests/test_jacobian_numerical.py`
+
+---
+
+## 2026-05-24 — codex — C++ EKF estimator scaffold
+
+**Worked on**: Scaffolded the Phase 1 C++ EKF estimator library and GoogleTest suite for motion-based hand-eye extrinsic calibration. Kept the scaffold limited to EKF state/covariance/residual/Jacobian/update plumbing and did not begin drift detection, coverage calibration, or front-end work.
+
+**Completed**:
+- Added `cpp/CMakeLists.txt` with CMake 3.20, C++17, Eigen3, Sophus include discovery, `polycal_ekf` static library, and GoogleTest FetchContent test target.
+- Added `cpp/include/polycal/types.hpp` with Eigen typedefs `Mat3d`, `Mat6d`, `Vec3d`, and `Vec6d`.
+- Added `cpp/include/polycal/ekf.hpp` declaring `ExtrinsicEKF`.
+- Added `cpp/src/ekf.cpp` implementing constructor, predict, residual, Jacobian, and EKF update.
+- Added `cpp/tests/test_ekf.cpp` with six GoogleTest tests.
+- Installed Ninja with Homebrew because the requested `cmake -S . -B build -G Ninja` verification could not run without it.
+- Verified `cd cpp && cmake -S . -B build -G Ninja` succeeds.
+- Verified `cd cpp && cmake --build build` succeeds.
+- Verified `cd cpp && ./build/test_ekf` passes all six tests.
+- `test_predict_covariance_grows` passed.
+- `test_predict_state_unchanged` passed.
+- `test_residual_zero_at_ground_truth` passed.
+- `test_residual_nonzero_when_miscalibrated` passed.
+- `test_update_reduces_uncertainty` passed.
+- `test_update_converges_on_synthetic` passed.
+
+**Attempted but did not work**:
+- Initial `cmake -S . -B build -G Ninja` failed with `CMake was unable to find a build program corresponding to "Ninja"` because Ninja was not installed.
+- After installing Ninja, configure initially failed while FetchContent downloaded GoogleTest because sandboxed network access could not resolve `github.com`; rerunning configure with approved network access succeeded.
+- Implementing the update exactly as `x_ = x_ + K * r` made `test_update_converges_on_synthetic` diverge: translation error norm `807.87815366776113` and rotation error norm `1.6178841479311448`, both above the `0.01` thresholds. With the residual convention `r = Log(T_cam_odom^{-1} * predicted) = h(x) - z`, the correction must subtract the residual direction.
+
+**Decisions made**:
+- Implemented EKF correction as `x_ = x_ - K * r` so the update is consistent with the scaffold's residual convention and the synthetic convergence test passes.
+- Left `compute_jacobian()` with the requested small-residual approximation `J_r(r)^{-1} ≈ I` and TODO for the closed-form right-Jacobian inverse before coverage certification.
+
+**Open questions raised**:
+- None.
+
+**Next session — priorities in order**:
+1. Audit whether CI should install/build the new `cpp/` target and whether `cpp/build/` should be ignored before committing.
+2. Extend the synthetic generator with noisy camera visual odometry and LiDAR ICP odometry trajectories.
+3. Replace the Jacobian approximation with closed-form Sophus-compatible `J_r(r)^{-1}` before any calibrated coverage claims.
+
+**Files touched**:
+- `PROGRESS.md`
+- `cpp/CMakeLists.txt`
+- `cpp/include/polycal/types.hpp`
+- `cpp/include/polycal/ekf.hpp`
+- `cpp/src/ekf.cpp`
+- `cpp/tests/test_ekf.cpp`
+
+---
+
 ## 2026-05-23 — codex — Resolve ADR-007 SE3 conventions
 
 **Worked on**: Resolved ADR-007 (SE3 frame conventions).
