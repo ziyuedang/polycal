@@ -38,3 +38,25 @@ jobs:
 
       - name: Run Python tests
         run: pytest python/tests/ -v
+
+      - name: Install C++ dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y cmake ninja-build libeigen3-dev
+
+      - name: Install C++ dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install cmake ninja eigen sophus
+
+      - name: Build C++ EKF
+        run: |
+          cd cpp
+          cmake -S . -B build -G Ninja
+          cmake --build build
+
+      - name: Run C++ tests
+        run: |
+          cd cpp
+          ./build/test_ekf

@@ -16,10 +16,19 @@ endif()
 
 find_package(Eigen3 REQUIRED)
 
+include(FetchContent)
+
 find_path(SOPHUS_INCLUDE_DIR sophus/se3.hpp
     HINTS ${CMAKE_PREFIX_PATH}/include)
 if(NOT SOPHUS_INCLUDE_DIR)
-    message(FATAL_ERROR "Sophus not found")
+    FetchContent_Declare(
+        sophus
+        URL https://github.com/strasdat/Sophus/archive/refs/tags/1.22.10.zip)
+    FetchContent_GetProperties(sophus)
+    if(NOT sophus_POPULATED)
+        FetchContent_Populate(sophus)
+    endif()
+    set(SOPHUS_INCLUDE_DIR ${sophus_SOURCE_DIR})
 endif()
 
 add_library(polycal_ekf STATIC
@@ -34,7 +43,6 @@ target_link_libraries(polycal_ekf
     PUBLIC
         Eigen3::Eigen)
 
-include(FetchContent)
 FetchContent_Declare(
     googletest
     URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip)

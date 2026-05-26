@@ -4,6 +4,42 @@ Log of work sessions on polycal. Newest entry on top. See `AGENTS.md` §7 for en
 
 ---
 
+## 2026-05-25 — codex — Add C++ EKF CI build
+
+**Worked on**: Added C++ EKF build and test coverage to the existing GitHub Actions CI workflow while preserving the Python test steps.
+
+**Completed**:
+- Appended C++ dependency install, build, and test steps after `pytest python/tests/ -v` in `.github/workflows/ci.yml`.
+- Added Ubuntu CI installation of `cmake`, `ninja-build`, and `libeigen3-dev`.
+- Added macOS CI installation of `cmake`, `ninja`, `eigen`, and `sophus`.
+- Added a CMake FetchContent fallback for Sophus 1.22.10 when `sophus/se3.hpp` is not found in system include paths.
+- Verified `.github/workflows/ci.yml` parses as YAML.
+- Verified `.github/workflows/ci.yml` and `cpp/CMakeLists.txt` contain no tabs.
+- Verified `cmake -S . -B build -G Ninja` succeeds in `cpp/`.
+- Verified `cmake --build build` succeeds in `cpp/`.
+- Verified `./build/test_ekf` passes all six tests.
+
+**Attempted but did not work**:
+- `libsophus-dev` does not appear in the Ubuntu Noble package search, so the Ubuntu CI step does not install it from apt; CMake now fetches Sophus 1.22.10 when no system Sophus headers are available.
+
+**Decisions made**:
+- Kept Homebrew Sophus for macOS CI and used a CMake FetchContent fallback for Linux portability.
+
+**Open questions raised**:
+- None.
+
+**Next session — priorities in order**:
+1. Extend the synthetic generator with noisy camera visual odometry and LiDAR ICP odometry trajectories.
+2. Wire the numerical Jacobian validation into broader CI if desired.
+3. Replace the Jacobian approximation with closed-form Sophus-compatible `J_r(r)^{-1}` before any calibrated coverage claims.
+
+**Files touched**:
+- `.github/workflows/ci.yml`
+- `cpp/CMakeLists.txt`
+- `PROGRESS.md`
+
+---
+
 ## 2026-05-24 — codex — Numerical EKF Jacobian validation
 
 **Worked on**: Added a Python finite-difference test for the Phase 1 EKF hand-eye Jacobian under the right/local SE(3) perturbation convention.
