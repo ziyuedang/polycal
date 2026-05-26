@@ -1,82 +1,9 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 from scipy.spatial.transform import Rotation
 
-
-def se3_exp(xi: np.ndarray) -> np.ndarray:
-    """6D tangent vector [rho, phi] -> 4x4 SE3 matrix. Right/local convention."""
-    rho = xi[:3]
-    phi = xi[3:]
-    angle = np.linalg.norm(phi)
-    if angle < 1e-10:
-        R = np.eye(3)
-        V = np.eye(3)
-    else:
-        R = Rotation.from_rotvec(phi).as_matrix()
-        phi_x = np.array(
-            [
-                [0, -phi[2], phi[1]],
-                [phi[2], 0, -phi[0]],
-                [-phi[1], phi[0], 0],
-            ]
-        )
-        V = (
-            np.eye(3)
-            + (1 - np.cos(angle)) / angle**2 * phi_x
-            + (angle - np.sin(angle)) / angle**3 * phi_x @ phi_x
-        )
-    T = np.eye(4)
-    T[:3, :3] = R
-    T[:3, 3] = V @ rho
-    return T
-
-
-def se3_log(T: np.ndarray) -> np.ndarray:
-    """4x4 SE3 matrix -> 6D [rho, phi] tangent vector."""
-    R = T[:3, :3]
-    t = T[:3, 3]
-    phi = Rotation.from_matrix(R).as_rotvec()
-    angle = np.linalg.norm(phi)
-    if angle < 1e-10:
-        V_inv = np.eye(3)
-    else:
-        phi_x = np.array(
-            [
-                [0, -phi[2], phi[1]],
-                [phi[2], 0, -phi[0]],
-                [-phi[1], phi[0], 0],
-            ]
-        )
-        V_inv = (
-            np.eye(3)
-            - 0.5 * phi_x
-            + (1 - angle * np.cos(angle / 2) / (2 * np.sin(angle / 2)))
-            / angle**2
-            * phi_x
-            @ phi_x
-        )
-    rho = V_inv @ t
-    return np.concatenate([rho, phi])
-
-
-def se3_adjoint(T: np.ndarray) -> np.ndarray:
-    """SE3 adjoint matrix, 6x6."""
-    R = T[:3, :3]
-    t = T[:3, 3]
-    skew_t = np.array(
-        [
-            [0, -t[2], t[1]],
-            [t[2], 0, -t[0]],
-            [-t[1], t[0], 0],
-        ]
-    )
-    adj = np.zeros((6, 6))
-    adj[:3, :3] = R
-    adj[:3, 3:] = skew_t @ R
-    adj[3:, 3:] = R
-    return adj
+from polycal.lie_utils import se3_adjoint, se3_exp, se3_log
 
 
 def residual(

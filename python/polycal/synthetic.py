@@ -222,6 +222,32 @@ class LinearDrift:
 
 
 @dataclass
+class OdometryConfig:
+    """Noise model for per-sensor odometry estimates."""
+
+    # Translation noise std per axis (meters).
+    translation_noise_std: float = 0.01
+    # Rotation noise std (radians, applied as rotvec perturbation).
+    rotation_noise_std: float = 0.001
+    # Fraction of timesteps that are near-degenerate.
+    degeneracy_fraction: float = 0.0
+
+
+@dataclass
+class VehicleTrajectoryConfig:
+    """Parameterizes the vehicle ego-motion over the session.
+
+    The vehicle follows a smooth trajectory in 3D space. Per-sensor odometry
+    is derived from this trajectory via ``T_lc``.
+    """
+
+    trajectory_type: str = "figure8"
+    linear_speed: float = 1.0
+    angular_speed: float = 0.3
+    random_walk_std: float = 0.1
+
+
+@dataclass
 class SyntheticConfig:
     """Configuration for generating a synthetic sequence."""
 
@@ -233,6 +259,11 @@ class SyntheticConfig:
     scene: SceneConfig = field(default_factory=SceneConfig.default_urban)
     initial_extrinsic: Array = field(default_factory=lambda: np.eye(4))
     drift_profile: DriftProfile = field(default_factory=lambda: StaticDrift(np.eye(4)))
+    odometry_camera: OdometryConfig = field(default_factory=OdometryConfig)
+    odometry_lidar: OdometryConfig = field(default_factory=OdometryConfig)
+    vehicle_trajectory: VehicleTrajectoryConfig = field(
+        default_factory=VehicleTrajectoryConfig
+    )
 
 
 @dataclass
@@ -253,6 +284,12 @@ class SyntheticDataset:
     image_features: list[Array]
     correspondences: list[list[Correspondence]]
     gt_extrinsics: Array
+    camera_odometry: Array
+    lidar_odometry: Array
+    camera_odometry_gt: Array
+    lidar_odometry_gt: Array
+    vehicle_poses: Array
+    vehicle_odometry_gt: Array
     config: SyntheticConfig
 
     def save(self, path: Path) -> None:
@@ -279,6 +316,12 @@ class SyntheticDataset:
         with np.load(path, allow_pickle=False) as data:
             timestamps = data["timestamps"]
             gt_extrinsics = data["gt_extrinsics"]
+            camera_odometry = data["camera_odometry"]
+            lidar_odometry = data["lidar_odometry"]
+            camera_odometry_gt = data["camera_odometry_gt"]
+            lidar_odometry_gt = data["lidar_odometry_gt"]
+            vehicle_poses = data["vehicle_poses"]
+            vehicle_odometry_gt = data["vehicle_odometry_gt"]
             lidar_counts = data["lidar_counts"]
             lidar_points = data["lidar_points"]
             feature_counts = data["feature_counts"]
@@ -311,6 +354,12 @@ class SyntheticDataset:
             image_features=image_features,
             correspondences=correspondences,
             gt_extrinsics=gt_extrinsics,
+            camera_odometry=camera_odometry,
+            lidar_odometry=lidar_odometry,
+            camera_odometry_gt=camera_odometry_gt,
+            lidar_odometry_gt=lidar_odometry_gt,
+            vehicle_poses=vehicle_poses,
+            vehicle_odometry_gt=vehicle_odometry_gt,
             config=_config_from_jsonable(config_json),
         )
 
@@ -335,6 +384,11 @@ def generate(config: SyntheticConfig) -> SyntheticDataset:
     image_features: list[Array] = []
     correspondences: list[list[Correspondence]] = []
     gt_extrinsics = np.empty((frame_count, 4, 4), dtype=float)
+    vehicle_poses = _generate_vehicle_poses(
+        timestamps,
+        config.vehicle_trajectory,
+        rng,
+    )
 
     for index, timestamp in enumerate(timestamps):
         T_lc = np.asarray(config.drift_profile(float(timestamp)), dtype=float)
@@ -352,14 +406,159 @@ def generate(config: SyntheticConfig) -> SyntheticDataset:
         image_features.append(features)
         correspondences.append(frame_corrs)
 
+    (
+        camera_odometry,
+        lidar_odometry,
+        camera_odometry_gt,
+        lidar_odometry_gt,
+        vehicle_odometry_gt,
+    ) = _generate_odometry(
+        gt_extrinsics,
+        config.odometry_camera,
+        config.odometry_lidar,
+        vehicle_poses,
+        rng,
+    )
+
     return SyntheticDataset(
         timestamps=timestamps,
         lidar_sweeps=lidar_sweeps,
         image_features=image_features,
         correspondences=correspondences,
         gt_extrinsics=gt_extrinsics,
+        camera_odometry=camera_odometry,
+        lidar_odometry=lidar_odometry,
+        camera_odometry_gt=camera_odometry_gt,
+        lidar_odometry_gt=lidar_odometry_gt,
+        vehicle_poses=vehicle_poses,
+        vehicle_odometry_gt=vehicle_odometry_gt,
         config=config,
     )
+
+
+def _generate_vehicle_poses(
+    timestamps: Array,
+    config: VehicleTrajectoryConfig,
+    rng: np.random.Generator,
+) -> Array:
+    poses = np.empty((timestamps.shape[0], 4, 4), dtype=float)
+    if timestamps.shape[0] == 0:
+        return poses
+    if config.trajectory_type == "figure8":
+        for index, timestamp in enumerate(timestamps):
+            theta = config.linear_speed * float(timestamp)
+            x = np.sin(theta)
+            y = np.sin(theta) * np.cos(theta)
+            dx_dt = config.linear_speed * np.cos(theta)
+            dy_dt = config.linear_speed * np.cos(2.0 * theta)
+            heading = np.arctan2(dy_dt, dx_dt) if dx_dt != 0.0 or dy_dt != 0.0 else 0.0
+            poses[index] = _make_pose(
+                np.array([x, y, 0.0]),
+                Rotation.from_euler("z", heading).as_matrix(),
+            )
+        return poses
+    if config.trajectory_type == "straight":
+        for index, timestamp in enumerate(timestamps):
+            poses[index] = _make_pose(
+                np.array([config.linear_speed * float(timestamp), 0.0, 0.0]),
+                np.eye(3),
+            )
+        return poses
+    if config.trajectory_type == "random_walk":
+        poses[0] = np.eye(4)
+        for index in range(1, timestamps.shape[0]):
+            delta = rng.normal(0.0, config.random_walk_std, size=6)
+            poses[index] = poses[index - 1] @ _se3_exp(delta)
+        return poses
+    raise ValueError(f"unknown vehicle trajectory type: {config.trajectory_type}")
+
+
+def _make_pose(translation: Array, rotation: Array) -> Array:
+    pose = np.eye(4)
+    pose[:3, :3] = rotation
+    pose[:3, 3] = translation
+    return pose
+
+
+def _generate_odometry(
+    gt_extrinsics: Array,
+    camera_config: OdometryConfig,
+    lidar_config: OdometryConfig,
+    vehicle_poses: Array,
+    rng: np.random.Generator,
+) -> tuple[Array, Array, Array, Array, Array]:
+    step_count = max(gt_extrinsics.shape[0] - 1, 0)
+    camera_gt = np.empty((step_count, 4, 4), dtype=float)
+    lidar_gt = np.empty((step_count, 4, 4), dtype=float)
+    vehicle_gt = np.empty((step_count, 4, 4), dtype=float)
+    camera_odometry = np.empty((step_count, 4, 4), dtype=float)
+    lidar_odometry = np.empty((step_count, 4, 4), dtype=float)
+    camera_degenerate = rng.random(step_count) < camera_config.degeneracy_fraction
+    lidar_degenerate = rng.random(step_count) < lidar_config.degeneracy_fraction
+
+    for index in range(step_count):
+        T_lc = gt_extrinsics[index]
+        T_vehicle_odom = np.linalg.inv(vehicle_poses[index]) @ vehicle_poses[index + 1]
+        vehicle_gt[index] = T_vehicle_odom
+        lidar_gt[index] = T_vehicle_odom
+        camera_gt[index] = T_lc @ T_vehicle_odom @ np.linalg.inv(T_lc)
+        camera_odometry[index] = _add_odometry_noise(
+            camera_gt[index],
+            camera_config,
+            bool(camera_degenerate[index]),
+            rng,
+        )
+        lidar_odometry[index] = _add_odometry_noise(
+            lidar_gt[index],
+            lidar_config,
+            bool(lidar_degenerate[index]),
+            rng,
+        )
+
+    return camera_odometry, lidar_odometry, camera_gt, lidar_gt, vehicle_gt
+
+
+def _add_odometry_noise(
+    T_gt: Array,
+    config: OdometryConfig,
+    degenerate: bool,
+    rng: np.random.Generator,
+) -> Array:
+    translation_std = config.translation_noise_std
+    rotation_std = config.rotation_noise_std
+    if degenerate:
+        translation_std *= 0.01
+        rotation_std *= 100.0
+    rho = rng.normal(0.0, translation_std, size=3)
+    phi = rng.normal(0.0, rotation_std, size=3)
+    return T_gt @ _se3_exp(np.concatenate([rho, phi]))
+
+
+def _se3_exp(xi: Array) -> Array:
+    rho = np.asarray(xi[:3], dtype=float)
+    phi = np.asarray(xi[3:], dtype=float)
+    angle = np.linalg.norm(phi)
+    if angle < 1e-10:
+        rotation = np.eye(3)
+        V = np.eye(3)
+    else:
+        rotation = Rotation.from_rotvec(phi).as_matrix()
+        phi_x = np.array(
+            [
+                [0.0, -phi[2], phi[1]],
+                [phi[2], 0.0, -phi[0]],
+                [-phi[1], phi[0], 0.0],
+            ]
+        )
+        V = (
+            np.eye(3)
+            + (1.0 - np.cos(angle)) / angle**2 * phi_x
+            + (angle - np.sin(angle)) / angle**3 * phi_x @ phi_x
+        )
+    T = np.eye(4)
+    T[:3, :3] = rotation
+    T[:3, 3] = V @ rho
+    return T
 
 
 def _simulate_lidar_sweep(
@@ -591,6 +790,12 @@ def _dataset_to_arrays(dataset: SyntheticDataset) -> dict[str, Array]:
     return {
         "timestamps": dataset.timestamps,
         "gt_extrinsics": dataset.gt_extrinsics,
+        "camera_odometry": dataset.camera_odometry,
+        "lidar_odometry": dataset.lidar_odometry,
+        "camera_odometry_gt": dataset.camera_odometry_gt,
+        "lidar_odometry_gt": dataset.lidar_odometry_gt,
+        "vehicle_poses": dataset.vehicle_poses,
+        "vehicle_odometry_gt": dataset.vehicle_odometry_gt,
         "lidar_counts": lidar_counts,
         "lidar_points": lidar_points,
         "feature_counts": feature_counts,
@@ -630,6 +835,9 @@ def _config_to_jsonable(config: SyntheticConfig) -> dict[str, Any]:
         "scene": _scene_to_jsonable(config.scene),
         "initial_extrinsic": np.asarray(config.initial_extrinsic).tolist(),
         "drift_profile": _drift_to_jsonable(config.drift_profile),
+        "odometry_camera": dataclasses.asdict(config.odometry_camera),
+        "odometry_lidar": dataclasses.asdict(config.odometry_lidar),
+        "vehicle_trajectory": dataclasses.asdict(config.vehicle_trajectory),
     }
 
 
@@ -649,6 +857,9 @@ def _config_from_jsonable(data: dict[str, Any]) -> SyntheticConfig:
         scene=_scene_from_jsonable(data["scene"]),
         initial_extrinsic=np.array(data["initial_extrinsic"], dtype=float),
         drift_profile=drift,
+        odometry_camera=OdometryConfig(**data["odometry_camera"]),
+        odometry_lidar=OdometryConfig(**data["odometry_lidar"]),
+        vehicle_trajectory=VehicleTrajectoryConfig(**data["vehicle_trajectory"]),
     )
 
 
