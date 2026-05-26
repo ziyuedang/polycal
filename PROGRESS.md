@@ -4,6 +4,40 @@ Log of work sessions on polycal. Newest entry on top. See `AGENTS.md` §7 for en
 
 ---
 
+## 2026-05-25 — codex — Fix fetched Sophus fmt dependency
+
+**Worked on**: Fixed the Ubuntu CI CMake path where fetched Sophus 1.22.10 requires `fmt/format.h`.
+
+**Completed**:
+- Updated `cpp/CMakeLists.txt` so `fmt` 10.2.1 is fetched before Sophus only when system Sophus headers are not found.
+- Linked `fmt::fmt` into `polycal_ekf` and `test_ekf` only on the fetched-Sophus path.
+- Left `.github/workflows/ci.yml` unchanged because the fix is contained in CMake.
+- Verified `rm -rf build` in `cpp/`.
+- Verified `cmake -S . -B build -G Ninja` succeeds in `cpp/`.
+- Verified `cmake --build build` succeeds in `cpp/`.
+- Verified `./build/test_ekf` passes all six tests.
+- Verified `cpp/CMakeLists.txt` contains no tabs.
+
+**Attempted but did not work**:
+- None.
+
+**Decisions made**:
+- Kept `fmt` scoped to the fetched-Sophus branch so Homebrew Sophus remains responsible for its own transitive dependencies on macOS.
+
+**Open questions raised**:
+- None.
+
+**Next session — priorities in order**:
+1. Extend the synthetic generator with noisy camera visual odometry and LiDAR ICP odometry trajectories.
+2. Wire the numerical Jacobian validation into broader CI if desired.
+3. Replace the Jacobian approximation with closed-form Sophus-compatible `J_r(r)^{-1}` before any calibrated coverage claims.
+
+**Files touched**:
+- `cpp/CMakeLists.txt`
+- `PROGRESS.md`
+
+---
+
 ## 2026-05-25 — codex — Add C++ EKF CI build
 
 **Worked on**: Added C++ EKF build and test coverage to the existing GitHub Actions CI workflow while preserving the Python test steps.

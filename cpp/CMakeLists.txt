@@ -20,14 +20,17 @@ include(FetchContent)
 
 find_path(SOPHUS_INCLUDE_DIR sophus/se3.hpp
     HINTS ${CMAKE_PREFIX_PATH}/include)
+set(POLYCAL_FETCHED_SOPHUS OFF)
 if(NOT SOPHUS_INCLUDE_DIR)
+    set(POLYCAL_FETCHED_SOPHUS ON)
+    FetchContent_Declare(
+        fmt
+        GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+        GIT_TAG        10.2.1)
     FetchContent_Declare(
         sophus
         URL https://github.com/strasdat/Sophus/archive/refs/tags/1.22.10.zip)
-    FetchContent_GetProperties(sophus)
-    if(NOT sophus_POPULATED)
-        FetchContent_Populate(sophus)
-    endif()
+    FetchContent_MakeAvailable(fmt sophus)
     set(SOPHUS_INCLUDE_DIR ${sophus_SOURCE_DIR})
 endif()
 
@@ -39,9 +42,16 @@ target_include_directories(polycal_ekf
         include
         ${SOPHUS_INCLUDE_DIR})
 
-target_link_libraries(polycal_ekf
-    PUBLIC
-        Eigen3::Eigen)
+if(POLYCAL_FETCHED_SOPHUS)
+    target_link_libraries(polycal_ekf
+        PUBLIC
+            Eigen3::Eigen
+            fmt::fmt)
+else()
+    target_link_libraries(polycal_ekf
+        PUBLIC
+            Eigen3::Eigen)
+endif()
 
 FetchContent_Declare(
     googletest
@@ -54,10 +64,18 @@ enable_testing()
 add_executable(test_ekf
     tests/test_ekf.cpp)
 
-target_link_libraries(test_ekf
-    PRIVATE
-        polycal_ekf
-        GTest::gtest_main)
+if(POLYCAL_FETCHED_SOPHUS)
+    target_link_libraries(test_ekf
+        PRIVATE
+            polycal_ekf
+            GTest::gtest_main
+            fmt::fmt)
+else()
+    target_link_libraries(test_ekf
+        PRIVATE
+            polycal_ekf
+            GTest::gtest_main)
+endif()
 
 include(GoogleTest)
 gtest_discover_tests(test_ekf)
