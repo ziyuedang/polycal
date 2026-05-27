@@ -241,10 +241,13 @@ class VehicleTrajectoryConfig:
     is derived from this trajectory via ``T_lc``.
     """
 
-    trajectory_type: str = "figure8"
+    trajectory_type: str = "sinusoidal_3d"
     linear_speed: float = 1.0
     angular_speed: float = 0.3
     random_walk_std: float = 0.1
+    pitch_amplitude: float = 0.15
+    roll_amplitude: float = 0.08
+    oscillation_frequency: float = 0.1
 
 
 @dataclass
@@ -446,15 +449,22 @@ def _generate_vehicle_poses(
         return poses
     if config.trajectory_type == "figure8":
         for index, timestamp in enumerate(timestamps):
-            theta = config.linear_speed * float(timestamp)
-            x = np.sin(theta)
-            y = np.sin(theta) * np.cos(theta)
-            dx_dt = config.linear_speed * np.cos(theta)
-            dy_dt = config.linear_speed * np.cos(2.0 * theta)
-            heading = np.arctan2(dy_dt, dx_dt) if dx_dt != 0.0 or dy_dt != 0.0 else 0.0
+            translation, heading = _figure8_pose_components(float(timestamp), config)
             poses[index] = _make_pose(
-                np.array([x, y, 0.0]),
+                translation,
                 Rotation.from_euler("z", heading).as_matrix(),
+            )
+        return poses
+    if config.trajectory_type == "sinusoidal_3d":
+        for index, timestamp in enumerate(timestamps):
+            t = float(timestamp)
+            translation, yaw = _figure8_pose_components(t, config)
+            oscillation = 2.0 * np.pi * config.oscillation_frequency * t
+            pitch = config.pitch_amplitude * np.sin(oscillation)
+            roll = config.roll_amplitude * np.sin(oscillation + np.pi / 4.0)
+            poses[index] = _make_pose(
+                translation,
+                Rotation.from_euler("zyx", [yaw, pitch, roll]).as_matrix(),
             )
         return poses
     if config.trajectory_type == "straight":
@@ -471,6 +481,19 @@ def _generate_vehicle_poses(
             poses[index] = poses[index - 1] @ _se3_exp(delta)
         return poses
     raise ValueError(f"unknown vehicle trajectory type: {config.trajectory_type}")
+
+
+def _figure8_pose_components(
+    timestamp: float,
+    config: VehicleTrajectoryConfig,
+) -> tuple[Array, float]:
+    theta = config.linear_speed * timestamp
+    x = np.sin(theta)
+    y = np.sin(theta) * np.cos(theta)
+    dx_dt = config.linear_speed * np.cos(theta)
+    dy_dt = config.linear_speed * np.cos(2.0 * theta)
+    heading = np.arctan2(dy_dt, dx_dt) if dx_dt != 0.0 or dy_dt != 0.0 else 0.0
+    return np.array([x, y, 0.0]), heading
 
 
 def _make_pose(translation: Array, rotation: Array) -> Array:

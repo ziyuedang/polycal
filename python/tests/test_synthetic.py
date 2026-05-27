@@ -254,7 +254,7 @@ def test_odometry_gt_consistent_with_vehicle_trajectory() -> None:
 def test_hand_eye_constraint_satisfied() -> None:
     T_lc = np.eye(4)
     T_lc[:3, 3] = np.array([0.1, -0.2, 0.3])
-    trajectory_types = ["figure8", "random_walk", "straight"]
+    trajectory_types = ["figure8", "random_walk", "straight", "sinusoidal_3d"]
 
     for trajectory_type in trajectory_types:
         dataset = generate(
@@ -319,6 +319,52 @@ def test_straight_trajectory_no_rotation() -> None:
 
     for T_vehicle_odom in dataset.vehicle_odometry_gt:
         np.testing.assert_allclose(T_vehicle_odom[:3, :3], np.eye(3), atol=1e-10)
+
+
+def test_sinusoidal_3d_has_pitch_and_roll() -> None:
+    dataset = generate(
+        _odometry_only_config(
+            vehicle_trajectory=VehicleTrajectoryConfig(
+                trajectory_type="sinusoidal_3d"
+            )
+        )
+    )
+    eulers = np.array(
+        [
+            Rotation.from_matrix(T[:3, :3]).as_euler("zyx")
+            for T in dataset.vehicle_poses
+        ]
+    )
+
+    assert float(np.mean(np.abs(eulers[:, 1]))) > 0.05
+    assert float(np.mean(np.abs(eulers[:, 2]))) > 0.02
+
+
+def test_sinusoidal_3d_hand_eye_constraint() -> None:
+    T_lc = np.eye(4)
+    T_lc[:3, 3] = np.array([0.1, -0.2, 0.3])
+    dataset = generate(
+        SyntheticConfig(
+            duration_s=1.0,
+            rate_hz=5.0,
+            seed=6,
+            lidar=LidarModel(horizontal_resolution_deg=30.0),
+            drift_profile=StaticDrift(T_lc),
+            vehicle_trajectory=VehicleTrajectoryConfig(
+                trajectory_type="sinusoidal_3d"
+            ),
+        )
+    )
+
+    for camera_odom, lidar_odom in zip(
+        dataset.camera_odometry_gt,
+        dataset.lidar_odometry_gt,
+    ):
+        np.testing.assert_allclose(
+            camera_odom,
+            T_lc @ lidar_odom @ np.linalg.inv(T_lc),
+            atol=1e-10,
+        )
 
 
 def test_noisy_odometry_noise_level() -> None:

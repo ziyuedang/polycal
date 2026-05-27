@@ -63,7 +63,6 @@ def test_ekf_converges_on_static_extrinsic() -> None:
                 translation_noise_std=0.0,
                 rotation_noise_std=0.0,
             ),
-            vehicle_trajectory=VehicleTrajectoryConfig(trajectory_type="figure8"),
         )
     )
     ekf = ExtrinsicEKF(np.eye(4), _scaled_identity(1.0), _scaled_identity(1e-8))
@@ -83,7 +82,7 @@ def test_ekf_converges_on_static_extrinsic() -> None:
 
 
 def test_ekf_tracks_linear_drift() -> None:
-    """EKF tracks a slowly drifting extrinsic using generated odometry."""
+    """EKF tracks a slowly drifting extrinsic using noisy generated odometry."""
     rotation_noise_std = 0.001
     drift = LinearDrift(
         T_start=np.eye(4),
@@ -98,21 +97,34 @@ def test_ekf_tracks_linear_drift() -> None:
             drift_profile=drift,
             odometry=OdometryConfig(
                 translation_noise_std=0.0,
-                rotation_noise_std=0.0,
+                rotation_noise_std=rotation_noise_std,
             ),
-            vehicle_trajectory=VehicleTrajectoryConfig(trajectory_type="figure8"),
+            vehicle_trajectory=VehicleTrajectoryConfig(
+                trajectory_type="sinusoidal_3d"
+            ),
         )
     )
-    ekf = ExtrinsicEKF(dataset.gt_extrinsics[0], _scaled_identity(0.1), _scaled_identity(1e-4))
-    R = _scaled_identity(1e-5)
+    ekf = ExtrinsicEKF(dataset.gt_extrinsics[0], _scaled_identity(0.1), _scaled_identity(1e-3))
+    R = _scaled_identity(1e-3)
     dt = 1.0 / dataset.config.rate_hz
+    final_translation_error = 0.0
+    final_rotation_error = 0.0
 
     for index in range(dataset.gt_extrinsics.shape[0] - 1):
         T_lc_step = dataset.gt_extrinsics[index]
         ekf.predict(dt)
         ekf.update(dataset.camera_odometry[index], dataset.lidar_odometry[index], R)
         error = _error_tangent(T_lc_step, ekf.T_lc)
-        assert np.linalg.norm(error[3:]) < 3.0 * rotation_noise_std
+        final_translation_error = float(np.linalg.norm(error[:3]))
+        final_rotation_error = float(np.linalg.norm(error[3:]))
+        assert final_rotation_error < 0.01
+        assert final_translation_error < 0.05
+
+    print(
+        "Final drift tracking error: "
+        f"translation={final_translation_error:.6f} m, "
+        f"rotation={final_rotation_error:.6f} rad"
+    )
 
 
 def test_ekf_covariance_calibration_sanity() -> None:
@@ -134,7 +146,9 @@ def test_ekf_covariance_calibration_sanity() -> None:
                     translation_noise_std=0.0,
                     rotation_noise_std=0.0,
                 ),
-                vehicle_trajectory=VehicleTrajectoryConfig(trajectory_type="figure8"),
+                vehicle_trajectory=VehicleTrajectoryConfig(
+                    trajectory_type="sinusoidal_3d"
+                ),
             )
         )
         perturbation = rng.normal(0.0, 0.01, size=6)

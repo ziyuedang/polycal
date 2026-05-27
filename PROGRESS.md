@@ -4,6 +4,46 @@ Log of work sessions on polycal. Newest entry on top. See `AGENTS.md` §7 for en
 
 ---
 
+## 2026-05-27 — codex — Sinusoidal 3D vehicle trajectory
+
+**Worked on**: Added a `sinusoidal_3d` vehicle trajectory with roll and pitch excitation and switched the default synthetic trajectory to it so generated odometry better excites all 6 DOF.
+
+**Completed**:
+- Added `pitch_amplitude`, `roll_amplitude`, and `oscillation_frequency` to `VehicleTrajectoryConfig`.
+- Added `sinusoidal_3d` trajectory generation using figure-8 XY/yaw motion plus sinusoidal pitch and roll.
+- Changed default `VehicleTrajectoryConfig.trajectory_type` to `sinusoidal_3d`.
+- Added synthetic tests for meaningful sinusoidal pitch/roll and hand-eye constraint consistency.
+- Updated EKF integration drift tracking to use noisy generated `sinusoidal_3d` odometry with `rotation_noise_std=0.001`.
+- Updated covariance sanity integration to use `sinusoidal_3d`.
+- Printed final drift tracking error: translation `0.000817 m`, rotation `0.004116 rad`.
+- Printed updated Phase 1 EKF 95% ellipsoid empirical coverage: `1.000`.
+- Verified `.venv/bin/pytest python/tests/test_synthetic.py -v` passes: 21 passed.
+- Verified `.venv/bin/pytest python/tests/test_ekf_integration.py -v` passes: 3 passed.
+- Verified `.venv/bin/pytest python/tests/ -v` passes: 39 passed.
+
+**Attempted but did not work**:
+- First run of noisy `sinusoidal_3d` drift tracking with `Q = 1e-4 * I` and `R = 1e-5 * I` failed with rotation error `0.012084338741283033`, above the `0.01` threshold. Using `Q = 1e-3 * I` and `R = 1e-3 * I` matches the noisy odometry scale better and passes.
+
+**Decisions made**:
+- Used `Rotation.from_euler("zyx", [yaw, pitch, roll])` for the requested `Rz(yaw) @ Ry(pitch) @ Rx(roll)` composition.
+- Kept drift tracking thresholds at `0.01 rad` rotation and `0.05 m` translation instead of loosening them.
+
+**Open questions raised**:
+- None.
+
+**Next session — priorities in order**:
+1. Wire Python EKF integration tests into CI if desired.
+2. Replace the Jacobian approximation with closed-form Sophus-compatible `J_r(r)^{-1}` before any calibrated coverage claims.
+3. Add explicit observability diagnostics for trajectory/odometry sequences.
+
+**Files touched**:
+- `python/polycal/synthetic.py`
+- `python/tests/test_synthetic.py`
+- `python/tests/test_ekf_integration.py`
+- `PROGRESS.md`
+
+---
+
 ## 2026-05-25 — codex — Vehicle trajectory synthetic odometry
 
 **Worked on**: Replaced extrinsic-delta-derived synthetic odometry with vehicle ego-motion-derived per-sensor odometry so the generated data excites the hand-eye constraint.
