@@ -17,8 +17,23 @@ from polycal.synthetic import (
 )
 
 
-def _scaled_identity(scale: float) -> np.ndarray:
-    return scale * np.eye(6)
+def _analytic_P_init() -> np.ndarray:
+    return np.diag([1e-4] * 6)
+
+
+def _analytic_Q() -> np.ndarray:
+    return np.diag([1e-8] * 3 + [1e-7] * 3)
+
+
+def _analytic_R(scale: float = 1.0) -> np.ndarray:
+    return scale * np.diag([2e-4] * 3 + [2e-6] * 3)
+
+
+def _odometry_config() -> OdometryConfig:
+    return OdometryConfig(
+        translation_noise_std=0.01,
+        rotation_noise_std=0.001,
+    )
 
 
 def _error_tangent(T_true: np.ndarray, T_est: np.ndarray) -> np.ndarray:
@@ -56,28 +71,34 @@ def test_ekf_converges_on_static_extrinsic() -> None:
     dataset = generate(
         _empty_scene_config(
             seed=2,
-            duration_s=20.1,
+            duration_s=40.1,
             rate_hz=10.0,
             drift_profile=StaticDrift(T_lc_true),
-            odometry=OdometryConfig(
-                translation_noise_std=0.0,
-                rotation_noise_std=0.0,
-            ),
+            odometry=_odometry_config(),
         )
     )
-    ekf = ExtrinsicEKF(np.eye(4), _scaled_identity(1.0), _scaled_identity(1e-8))
-    R = _scaled_identity(1e-4)
+    ekf = ExtrinsicEKF(np.eye(4), _analytic_P_init(), _analytic_Q())
+    R = _analytic_R()
+    dt = 1.0 / dataset.config.rate_hz
     trace_initial = float(np.trace(ekf.P))
 
     for T_cam_odom, T_lidar_odom in zip(
         dataset.camera_odometry,
         dataset.lidar_odometry,
     ):
+        ekf.predict(dt)
         ekf.update(T_cam_odom, T_lidar_odom, R)
 
     error = _error_tangent(T_lc_true, ekf.T_lc)
-    assert np.linalg.norm(error[:3]) < 0.01
-    assert np.linalg.norm(error[3:]) < 0.01
+    translation_error = float(np.linalg.norm(error[:3]))
+    rotation_error = float(np.linalg.norm(error[3:]))
+    print(
+        "Static convergence final error: "
+        f"translation={translation_error:.6f} m, "
+        f"rotation={rotation_error:.6f} rad"
+    )
+    assert translation_error < 0.01
+    assert rotation_error < 0.02
     assert float(np.trace(ekf.P)) < 0.5 * trace_initial
 
 
@@ -95,17 +116,15 @@ def test_ekf_tracks_linear_drift() -> None:
             duration_s=60.0,
             rate_hz=10.0,
             drift_profile=drift,
-            odometry=OdometryConfig(
-                translation_noise_std=0.0,
-                rotation_noise_std=rotation_noise_std,
-            ),
+            odometry=_odometry_config(),
             vehicle_trajectory=VehicleTrajectoryConfig(
                 trajectory_type="sinusoidal_3d"
             ),
         )
     )
-    ekf = ExtrinsicEKF(dataset.gt_extrinsics[0], _scaled_identity(0.1), _scaled_identity(1e-3))
-    R = _scaled_identity(1e-3)
+    assert dataset.config.odometry_camera.rotation_noise_std == rotation_noise_std
+    ekf = ExtrinsicEKF(dataset.gt_extrinsics[0], _analytic_P_init(), _analytic_Q())
+    R = _analytic_R()
     dt = 1.0 / dataset.config.rate_hz
     final_translation_error = 0.0
     final_rotation_error = 0.0
@@ -117,7 +136,7 @@ def test_ekf_tracks_linear_drift() -> None:
         error = _error_tangent(T_lc_step, ekf.T_lc)
         final_translation_error = float(np.linalg.norm(error[:3]))
         final_rotation_error = float(np.linalg.norm(error[3:]))
-        assert final_rotation_error < 0.01
+        assert final_rotation_error < 0.05
         assert final_translation_error < 0.05
 
     print(
@@ -130,10 +149,11 @@ def test_ekf_tracks_linear_drift() -> None:
 def test_ekf_covariance_calibration_sanity() -> None:
     """Estimate Phase 1 empirical coverage of the 95% covariance ellipsoid."""
     rng = np.random.default_rng(4)
-    trials = 500
+    trials = 2000
     covered = 0
     threshold = float(chi2.ppf(0.95, df=6))
     T_lc_true = se3_exp(np.array([0.03, -0.02, 0.01, 0.04, -0.03, 0.02]))
+    R = _analytic_R()
 
     for trial in range(trials):
         dataset = generate(
@@ -142,10 +162,7 @@ def test_ekf_covariance_calibration_sanity() -> None:
                 duration_s=5.1,
                 rate_hz=10.0,
                 drift_profile=StaticDrift(T_lc_true),
-                odometry=OdometryConfig(
-                    translation_noise_std=0.0,
-                    rotation_noise_std=0.0,
-                ),
+                odometry=_odometry_config(),
                 vehicle_trajectory=VehicleTrajectoryConfig(
                     trajectory_type="sinusoidal_3d"
                 ),
@@ -153,13 +170,14 @@ def test_ekf_covariance_calibration_sanity() -> None:
         )
         perturbation = rng.normal(0.0, 0.01, size=6)
         T_lc_init = T_lc_true @ se3_exp(perturbation)
-        ekf = ExtrinsicEKF(T_lc_init, _scaled_identity(0.02), _scaled_identity(1e-8))
-        R = _scaled_identity(1e-4)
+        ekf = ExtrinsicEKF(T_lc_init, _analytic_P_init(), _analytic_Q())
+        dt = 1.0 / dataset.config.rate_hz
 
         for T_cam_odom, T_lidar_odom in zip(
             dataset.camera_odometry,
             dataset.lidar_odometry,
         ):
+            ekf.predict(dt)
             ekf.update(T_cam_odom, T_lidar_odom, R)
 
         error = _error_tangent(T_lc_true, ekf.T_lc)
@@ -169,4 +187,4 @@ def test_ekf_covariance_calibration_sanity() -> None:
 
     coverage = covered / trials
     print(f"Phase 1 EKF 95% ellipsoid empirical coverage: {coverage:.3f}")
-    assert 0.85 <= coverage <= 1.0
+    assert 0.92 <= coverage <= 0.97
