@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import numpy as np
 
-from polycal.lie_utils import se3_adjoint, se3_exp, se3_log
+from polycal.lie_utils import (
+    se3_adjoint,
+    se3_exp,
+    se3_log,
+    se3_right_jacobian_inverse,
+)
 
 
 class ExtrinsicEKF:
@@ -41,10 +46,18 @@ class ExtrinsicEKF:
         T_cam_odom: np.ndarray,
         T_lidar_odom: np.ndarray,
     ) -> np.ndarray:
-        """Compute the Phase 1 hand-eye Jacobian."""
-        return se3_adjoint(self.T_lc_) @ (
+        """Compute the hand-eye Jacobian."""
+        predicted = self.T_lc_ @ T_lidar_odom @ np.linalg.inv(self.T_lc_)
+        error = np.linalg.inv(T_cam_odom) @ predicted
+        r = se3_log(error)
+
+        # Closed-form J_r^{-1} per Sola et al. arXiv:1812.01537 eq. 179b
+        Jr_inv = se3_right_jacobian_inverse(r)
+
+        H_inside = se3_adjoint(self.T_lc_) @ (
             se3_adjoint(np.linalg.inv(T_lidar_odom)) - np.eye(6)
         )
+        return Jr_inv @ H_inside
 
     def update(
         self,

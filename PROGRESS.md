@@ -4,6 +4,46 @@ Log of work sessions on polycal. Newest entry on top. See `AGENTS.md` §7 for en
 
 ---
 
+## 2026-05-27 — codex — Closed-form SE3 right Jacobian inverse
+
+**Worked on**: Implemented closed-form SO(3)/SE(3) right Jacobian helpers and updated the Python EKF Jacobian to apply `J_r(r)^{-1}` instead of the Phase 1 identity approximation.
+
+**Completed**:
+- Added `skew`, `so3_right_jacobian`, `so3_right_jacobian_inverse`, `Q_left`, and `se3_right_jacobian_inverse` to `python/polycal/lie_utils.py`.
+- Updated `python/polycal/ekf.py` to use closed-form `J_r(r)^{-1}` in `compute_jacobian`.
+- Exported the new Lie Jacobian helpers from `python/polycal/__init__.py`.
+- Added `python/tests/test_lie_utils.py` covering SO(3) inverse consistency, SE(3) inverse consistency, and small-angle behavior.
+- Updated `python/tests/test_jacobian_numerical.py` so finite-difference Jacobian validation includes the closed-form `J_r^{-1}` correction.
+- Verified `.venv/bin/pytest python/tests/test_lie_utils.py -v` passes: 5 passed.
+- Verified `.venv/bin/pytest python/tests/test_jacobian_numerical.py -v` passes: 4 passed.
+- Verified `.venv/bin/pytest python/tests/test_ekf_integration.py -v` passes: 3 passed.
+- Verified `.venv/bin/pytest python/tests/ -v` passes: 45 passed.
+- Printed updated EKF 95% ellipsoid empirical coverage: `1.000`.
+
+**Attempted but did not work**:
+- Expected empirical coverage to move from `1.000` toward `0.95` after applying `J_r^{-1}`, but it remained `1.000`. Current Q/R tuning and conservative covariance dominate the residual Jacobian correction at this noise level.
+
+**Decisions made**:
+- Implemented the SE(3) right Jacobian inverse via `Q_r(rho, phi) = Q_left(-rho, -phi)` and block inverse `-Jr_inv @ Q_r @ Jr_inv`, matching the requested Sola relation.
+
+**Open questions raised**:
+- None.
+
+**Next session — priorities in order**:
+1. Port the closed-form `J_r(r)^{-1}` correction to the C++ EKF scaffold.
+2. Tune EKF Q/R and integration-test covariance initialization so 95% ellipsoid coverage is informative rather than always conservative.
+3. Add observability diagnostics for generated trajectory/odometry sequences.
+
+**Files touched**:
+- `python/polycal/lie_utils.py`
+- `python/polycal/ekf.py`
+- `python/polycal/__init__.py`
+- `python/tests/test_lie_utils.py`
+- `python/tests/test_jacobian_numerical.py`
+- `PROGRESS.md`
+
+---
+
 ## 2026-05-27 — codex — CI Python integration coverage exports
 
 **Worked on**: Verified the existing CI Python test step already covers `test_ekf_integration.py` and fixed package-level exports needed by clean editable installs.

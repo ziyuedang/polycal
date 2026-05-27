@@ -3,7 +3,15 @@
 from __future__ import annotations
 
 from polycal.ekf import ExtrinsicEKF
-from polycal.lie_utils import se3_adjoint, se3_exp, se3_log
+from polycal.lie_utils import (
+    Q_left,
+    se3_adjoint,
+    se3_exp,
+    se3_log,
+    se3_right_jacobian_inverse,
+    so3_right_jacobian,
+    so3_right_jacobian_inverse,
+)
 from polycal.metrics import interval_score, mpiw, picp
 from polycal.synthetic import (
     CameraModel,
@@ -43,6 +51,10 @@ __all__ = [
     "se3_exp",
     "se3_log",
     "se3_adjoint",
+    "so3_right_jacobian",
+    "so3_right_jacobian_inverse",
+    "Q_left",
+    "se3_right_jacobian_inverse",
     "picp",
     "mpiw",
     "interval_score",
