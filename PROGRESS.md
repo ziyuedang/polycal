@@ -4,6 +4,38 @@ Log of work sessions on polycal. Newest entry on top. See `AGENTS.md` §7 for en
 
 ---
 
+## 2026-05-27 — codex — CI Python integration coverage exports
+
+**Worked on**: Verified the existing CI Python test step already covers `test_ekf_integration.py` and fixed package-level exports needed by clean editable installs.
+
+**Completed**:
+- Confirmed `.github/workflows/ci.yml` runs `pytest python/tests/ -v`, so no CI workflow change was needed for integration tests.
+- Confirmed `pyproject.toml` dev extras already include `pytest`, `numpy`, and `scipy`.
+- Added package exports for `ExtrinsicEKF`, `se3_exp`, `se3_log`, `se3_adjoint`, `OdometryConfig`, and `VehicleTrajectoryConfig`.
+- Verified direct imports from `polycal`, `polycal.ekf`, `polycal.lie_utils`, and `polycal.synthetic` work locally.
+- Verified `.venv/bin/pytest python/tests/ -v` passes: 39 passed.
+
+**Attempted but did not work**:
+- None.
+
+**Decisions made**:
+- Left `.github/workflows/ci.yml` unchanged because the full `python/tests/` directory is already run in CI.
+- Left `pyproject.toml` unchanged because required integration test dependencies are already present in `[project.optional-dependencies].dev`.
+
+**Open questions raised**:
+- None.
+
+**Next session — priorities in order**:
+1. Verify GitHub Actions passes on macOS and Ubuntu after push.
+2. Replace the Jacobian approximation with closed-form Sophus-compatible `J_r(r)^{-1}` before any calibrated coverage claims.
+3. Add explicit observability diagnostics for trajectory/odometry sequences.
+
+**Files touched**:
+- `python/polycal/__init__.py`
+- `PROGRESS.md`
+
+---
+
 ## 2026-05-27 — codex — Sinusoidal 3D vehicle trajectory
 
 **Worked on**: Added a `sinusoidal_3d` vehicle trajectory with roll and pitch excitation and switched the default synthetic trajectory to it so generated odometry better excites all 6 DOF.
