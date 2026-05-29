@@ -2,6 +2,13 @@
 
 from __future__ import annotations
 
+from polycal.cusum import (
+    CUSUMCalibration,
+    CUSUMConfig,
+    CUSUMDetector,
+    calibrate_kappa,
+    compute_innovation_cov,
+)
 from polycal.ekf import ExtrinsicEKF
 from polycal.lie_utils import (
     Q_left,
@@ -48,6 +55,11 @@ __all__ = [
     "Correspondence",
     "generate",
     "ExtrinsicEKF",
+    "CUSUMConfig",
+    "CUSUMDetector",
+    "CUSUMCalibration",
+    "calibrate_kappa",
+    "compute_innovation_cov",
     "se3_exp",
     "se3_log",
     "se3_adjoint",

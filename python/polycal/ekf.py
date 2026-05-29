@@ -75,6 +75,28 @@ class ExtrinsicEKF:
         self.T_lc_ = self.T_lc_ @ se3_exp(self.x_)
         self.x_ = np.zeros(6, dtype=float)
 
+    def update_with_cusum(
+        self,
+        T_cam_odom: np.ndarray,
+        T_lidar_odom: np.ndarray,
+        R: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Apply one EKF update and return innovation data for CUSUM.
+
+        Returns:
+            Tuple ``(innovation, innovation_cov)`` where ``innovation`` is the
+            residual vector and ``innovation_cov`` is ``S = H P H.T + R``.
+        """
+        H = self.compute_jacobian(T_cam_odom, T_lidar_odom)
+        r = self.compute_residual(T_cam_odom, T_lidar_odom)
+        S = H @ self.P_ @ H.T + R
+        K = self.P_ @ H.T @ np.linalg.inv(S)
+        self.x_ = self.x_ - K @ r
+        self.P_ = (np.eye(6) - K @ H) @ self.P_
+        self.T_lc_ = self.T_lc_ @ se3_exp(self.x_)
+        self.x_ = np.zeros(6, dtype=float)
+        return r, S
+
     @property
     def T_lc(self) -> np.ndarray:
         """Return the current LiDAR-to-camera transform estimate."""
