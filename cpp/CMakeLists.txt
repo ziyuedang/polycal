@@ -60,6 +60,12 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
+FetchContent_Declare(
+    pybind11
+    GIT_REPOSITORY https://github.com/pybind/pybind11.git
+    GIT_TAG        v2.12.0)
+FetchContent_MakeAvailable(pybind11)
+
 enable_testing()
 
 add_executable(test_ekf
@@ -80,3 +86,26 @@ endif()
 
 include(GoogleTest)
 gtest_discover_tests(test_ekf)
+
+pybind11_add_module(_polycal_cpp
+    src/bindings.cpp)
+
+target_include_directories(_polycal_cpp
+    PRIVATE
+        include
+        ${SOPHUS_INCLUDE_DIR})
+
+target_link_libraries(_polycal_cpp
+    PRIVATE
+        polycal_ekf
+        Eigen3::Eigen)
+
+if(TARGET fmt::fmt)
+    target_link_libraries(_polycal_cpp
+        PRIVATE
+            fmt::fmt)
+endif()
+
+set_target_properties(_polycal_cpp PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY
+        ${CMAKE_SOURCE_DIR}/../python/polycal)

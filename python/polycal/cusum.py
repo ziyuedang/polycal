@@ -119,12 +119,35 @@ class CUSUMDetector:
     alarm when it exceeds the configured threshold.
     """
 
-    def __init__(self, config: CUSUMConfig):
+    def __init__(
+        self,
+        config: CUSUMConfig | None = None,
+        backend: str = "python",
+    ) -> None:
         """Initialize the detector."""
-        self.config = config
-        self.g_ = 0.0
-        self.step_ = 0
-        self.alarm_step_: int | None = None
+        if config is None:
+            config = CUSUMConfig()
+
+        if backend == "cpp":
+            try:
+                from polycal import _polycal_cpp
+            except ImportError as e:
+                raise ImportError("C++ backend not available.") from e
+            cpp_config = _polycal_cpp.CUSUMConfig()
+            cpp_config.kappa = config.kappa
+            cpp_config.threshold = config.threshold
+            cpp_config.dof = config.dof
+            self._backend = "cpp"
+            self._cpp = _polycal_cpp.CUSUMDetector(cpp_config)
+        elif backend == "python":
+            self._backend = "python"
+            self._cpp = None
+            self.config = config
+            self.g_ = 0.0
+            self.step_ = 0
+            self.alarm_step_: int | None = None
+        else:
+            raise ValueError(f"backend must be 'python' or 'cpp', got {backend!r}")
 
     def update(
         self,
@@ -140,6 +163,8 @@ class CUSUMDetector:
         Returns:
             Tuple ``(alarm, g)`` with alarm state and current statistic.
         """
+        if self._backend == "cpp":
+            return self._cpp.update(innovation, innovation_cov)
         S_inv = np.linalg.inv(innovation_cov)
         mahal_sq = float(innovation @ S_inv @ innovation)
         normalized = mahal_sq / self.config.dof
@@ -155,17 +180,25 @@ class CUSUMDetector:
 
     def reset(self) -> None:
         """Reset CUSUM statistic. Call after recalibration."""
+        if self._backend == "cpp":
+            self._cpp.reset()
+            return
         self.g_ = 0.0
         self.alarm_step_ = None
 
     @property
     def statistic(self) -> float:
         """Return the current CUSUM statistic."""
+        if self._backend == "cpp":
+            return self._cpp.statistic()
         return self.g_
 
     @property
     def steps_to_alarm(self) -> int | None:
         """Steps from start to first alarm, or ``None`` if no alarm yet."""
+        if self._backend == "cpp":
+            step = self._cpp.steps_to_alarm()
+            return None if step < 0 else step
         return self.alarm_step_
 
 

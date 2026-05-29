@@ -4,6 +4,47 @@ Log of work sessions on polycal. Newest entry on top. See `AGENTS.md` §7 for en
 
 ---
 
+## 2026-05-29 — codex — pybind11 C++ backend bindings
+
+**Worked on**: Added pybind11 bindings for the C++ EKF and CUSUM detector, then added Python backend-selection wrappers and parity tests.
+
+**Completed**:
+- Added `cpp/src/bindings.cpp` exposing C++ `ExtrinsicEKF`, `UpdateResult`, `CUSUMConfig`, `CUSUMCalibration`, and `CUSUMDetector`.
+- Updated `cpp/CMakeLists.txt` to fetch pybind11 and build `_polycal_cpp` into `python/polycal/`.
+- Added `backend="python" | "cpp"` selection to `python/polycal/ekf.py` for `ExtrinsicEKF`.
+- Added `backend="python" | "cpp"` selection to `python/polycal/cusum.py` for `CUSUMDetector`.
+- Added `python/tests/test_backend_parity.py` covering EKF predict, residual, update, CUSUM update, and EKF+CUSUM parity; tests skip if `_polycal_cpp` is absent.
+- Built `_polycal_cpp.cpython-311-darwin.so` into `python/polycal/`.
+- Verified `.venv/bin/pytest python/tests/test_backend_parity.py -v -s` passes: 5 passed.
+- Verified `.venv/bin/pytest python/tests/ -v` passes: 62 passed.
+- Verified `cmake --build build` in `cpp` succeeds.
+- Verified `./build/test_ekf` in `cpp` passes: 13 tests passed.
+
+**Attempted but did not work**:
+- First CMake configure selected system Python 3.9 and produced `_polycal_cpp.cpython-39-darwin.so`, which was not importable from the project Python 3.11 venv. Reconfiguring with `-DPYTHON_EXECUTABLE=/Users/ziyuedang/Development/polycal/.venv/bin/python` produced the importable `_polycal_cpp.cpython-311-darwin.so`.
+
+**Decisions made**:
+- Parity tests use zero-residual EKF update sequences where Python and C++ should match exactly despite the current known Jacobian difference: Python has closed-form `J_r^{-1}`, while C++ still has the identity approximation.
+- Left `compute_jacobian` unavailable for the C++ Python backend, matching the requested wrapper behavior.
+
+**Open questions raised**:
+- Should generated `_polycal_cpp*.so` artifacts be ignored or cleaned before commits, or should extension builds remain local-only artifacts?
+
+**Next session — priorities in order**:
+1. Add gitignore/build hygiene for generated `_polycal_cpp*.so` artifacts if desired.
+2. Port closed-form `J_r(r)^{-1}` from Python to C++ so backend parity can cover nonzero-residual EKF updates.
+3. Wire extension build into packaging or CI once the desired distribution path is decided.
+
+**Files touched**:
+- `cpp/src/bindings.cpp`
+- `cpp/CMakeLists.txt`
+- `python/polycal/ekf.py`
+- `python/polycal/cusum.py`
+- `python/tests/test_backend_parity.py`
+- `PROGRESS.md`
+
+---
+
 ## 2026-05-29 — codex — C++ CUSUM detector port
 
 **Worked on**: Ported the Python CUSUM detector and EKF innovation-returning update path into the C++ EKF scaffold.

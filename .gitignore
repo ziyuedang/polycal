@@ -7,3 +7,7 @@ __pycache__/
 .DS_Store
 cpp/buid
 cpp/build/
+_polycal_cpp*.so
+*.cpython-*.so
+_polycal_cpp*.so
+*.cpython-*.so
