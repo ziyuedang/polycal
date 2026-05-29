@@ -43,4 +43,19 @@ void ExtrinsicEKF::update(const Sophus::SE3d& T_cam_odom,
     x_ = Vec6d::Zero();
 }
 
+ExtrinsicEKF::UpdateResult ExtrinsicEKF::update_with_cusum(
+    const Sophus::SE3d& T_cam_odom,
+    const Sophus::SE3d& T_lidar_odom,
+    const Mat6d& R) {
+    Mat6d H = compute_jacobian(T_cam_odom, T_lidar_odom);
+    Vec6d r = compute_residual(T_cam_odom, T_lidar_odom);
+    Mat6d S = H * P_ * H.transpose() + R;
+    Mat6d K = P_ * H.transpose() * S.inverse();
+    x_ = x_ - K * r;
+    P_ = (Mat6d::Identity() - K * H) * P_;
+    T_lc_ = T_lc_ * Sophus::SE3d::exp(x_);
+    x_ = Vec6d::Zero();
+    return {r, S};
+}
+
 }  // namespace polycal

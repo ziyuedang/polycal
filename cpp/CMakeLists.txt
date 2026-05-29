@@ -35,7 +35,8 @@ if(NOT SOPHUS_INCLUDE_DIR)
 endif()
 
 add_library(polycal_ekf STATIC
-    src/ekf.cpp)
+    src/ekf.cpp
+    src/cusum.cpp)
 
 target_include_directories(polycal_ekf
     PUBLIC

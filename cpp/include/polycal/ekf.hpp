@@ -6,6 +6,11 @@ namespace polycal {
 
 class ExtrinsicEKF {
 public:
+    struct UpdateResult {
+        Vec6d innovation;
+        Mat6d innovation_cov;
+    };
+
     ExtrinsicEKF(const Sophus::SE3d& T_lc_init,
                  const Mat6d& P_init,
                  const Mat6d& Q);
@@ -28,6 +33,10 @@ public:
     void update(const Sophus::SE3d& T_cam_odom,
                 const Sophus::SE3d& T_lidar_odom,
                 const Mat6d& R);
+
+    UpdateResult update_with_cusum(const Sophus::SE3d& T_cam_odom,
+                                   const Sophus::SE3d& T_lidar_odom,
+                                   const Mat6d& R);
 
     // Accessors
     Sophus::SE3d T_lc() const { return T_lc_; }

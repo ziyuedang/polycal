@@ -4,6 +4,47 @@ Log of work sessions on polycal. Newest entry on top. See `AGENTS.md` §7 for en
 
 ---
 
+## 2026-05-29 — codex — C++ CUSUM detector port
+
+**Worked on**: Ported the Python CUSUM detector and EKF innovation-returning update path into the C++ EKF scaffold.
+
+**Completed**:
+- Added `cpp/include/polycal/cusum.hpp` with `CUSUMConfig`, `CUSUMCalibration`, and `CUSUMDetector`.
+- Added `cpp/src/cusum.cpp` implementing detector update, reset, innovation covariance, and empirical kappa calibration.
+- Added `ExtrinsicEKF::UpdateResult` and `ExtrinsicEKF::update_with_cusum()` to return innovation and innovation covariance while applying the standard update.
+- Added `src/cusum.cpp` to the `polycal_ekf` CMake target.
+- Added seven GoogleTest CUSUM tests for no-drift alarms, drift triggering, reset, zero floor, innovation covariance, kappa calibration, and EKF+CUSUM integration.
+- Verified `cmake -S . -B build -G Ninja` in `cpp` succeeds.
+- Verified `cmake --build build` in `cpp` succeeds.
+- Verified `./build/test_ekf` passes: 13 tests passed.
+
+**Attempted but did not work**:
+- A 0.5 shift in one innovation DOF does not reliably trigger within 50 steps with the false-alarm-controlled default `kappa=1.5`; the expected normalized increment remains below kappa. The C++ drift-trigger unit test uses a 3.0 shift, matching the existing Python CUSUM unit test scale.
+- First EKF+CUSUM integration attempt with only z-rotation odometry did not alarm within 30 drift steps. Adding noncommuting roll/pitch excitation to the synthetic C++ odometry produced an alarm, but the first amplitude choice alarmed at step 41; increasing roll/pitch excitation to `0.2` and `0.15` rad made the test pass within the 30-step requirement.
+
+**Decisions made**:
+- Kept C++ `CUSUMConfig` default at `kappa=1.5`, matching the Python false-alarm-controlled default.
+- Kept the C++ EKF Jacobian unchanged; this session only added the CUSUM hook requested by the task.
+
+**Open questions raised**:
+- None.
+
+**Next session — priorities in order**:
+1. Port the closed-form `J_r(r)^{-1}` correction from Python to the C++ EKF Jacobian.
+2. Add C++ documentation/examples for CUSUM calibration and operating-characteristic interpretation.
+3. Decide whether to separate C++ EKF and CUSUM tests into distinct test binaries as the C++ suite grows.
+
+**Files touched**:
+- `cpp/include/polycal/cusum.hpp`
+- `cpp/src/cusum.cpp`
+- `cpp/include/polycal/ekf.hpp`
+- `cpp/src/ekf.cpp`
+- `cpp/tests/test_ekf.cpp`
+- `cpp/CMakeLists.txt`
+- `PROGRESS.md`
+
+---
+
 ## 2026-05-29 — codex — CUSUM kappa calibration
 
 **Worked on**: Changed the CUSUM default reference value to a false-alarm-controlled `kappa=1.5` and added empirical kappa calibration from held-out no-drift innovations.
