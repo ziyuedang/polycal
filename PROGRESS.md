@@ -4,6 +4,41 @@ Log of work sessions on polycal. Newest entry on top. See `AGENTS.md` §7 for en
 
 ---
 
+## 2026-05-29 — codex — fmt PIC CI fix
+
+**Worked on**: Updated CMake PIC settings so fetched fmt and future fetched dependencies can link into the pybind11 shared module on Linux.
+
+**Completed**:
+- Added global `CMAKE_POSITION_INDEPENDENT_CODE ON` near the top of `cpp/CMakeLists.txt`.
+- Added `FMT_PIC ON` before `FetchContent_MakeAvailable(fmt)`.
+- Added PIC target properties for fetched `fmt` and `fmt-header-only` targets when present.
+- Removed the now-redundant `POSITION_INDEPENDENT_CODE` property from `polycal_ekf`.
+- Verified clean C++ build from `rm -rf build`.
+- Verified `cmake -S . -B build -G Ninja` in `cpp` succeeds.
+- Verified `cmake --build build` in `cpp` succeeds.
+- Verified `./build/test_ekf` passes: 13 tests passed.
+- Verified `ls ../python/polycal/_polycal_cpp*.so` finds generated extension artifacts.
+
+**Attempted but did not work**:
+- None.
+
+**Decisions made**:
+- Used global PIC as the fallback for all CMake targets and explicit fmt PIC settings for the fetched fmt target to address Ubuntu shared-library linking.
+
+**Open questions raised**:
+- None.
+
+**Next session — priorities in order**:
+1. Re-run Ubuntu CI to confirm both `polycal_ekf` and fetched fmt PIC link failures are fixed.
+2. Add gitignore/build hygiene for generated `_polycal_cpp*.so` artifacts if desired.
+3. Port closed-form `J_r(r)^{-1}` from Python to C++ so backend parity can cover nonzero-residual EKF updates.
+
+**Files touched**:
+- `cpp/CMakeLists.txt`
+- `PROGRESS.md`
+
+---
+
 ## 2026-05-29 — codex — C++ PIC static library fix
 
 **Worked on**: Fixed the C++ static library build so `polycal_ekf` can link into the pybind11 shared module on Linux.

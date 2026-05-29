@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.20)
 
 project(polycal_cpp LANGUAGES CXX)
 
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -27,19 +29,26 @@ if(NOT SOPHUS_INCLUDE_DIR)
         fmt
         GIT_REPOSITORY https://github.com/fmtlib/fmt.git
         GIT_TAG        10.2.1)
+    set(FMT_PIC ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(fmt)
+    if(TARGET fmt)
+        set_target_properties(fmt PROPERTIES
+            POSITION_INDEPENDENT_CODE ON)
+    endif()
+    if(TARGET fmt-header-only)
+        set_target_properties(fmt-header-only PROPERTIES
+            POSITION_INDEPENDENT_CODE ON)
+    endif()
     FetchContent_Declare(
         sophus
         URL https://github.com/strasdat/Sophus/archive/refs/tags/1.22.10.zip)
-    FetchContent_MakeAvailable(fmt sophus)
+    FetchContent_MakeAvailable(sophus)
     set(SOPHUS_INCLUDE_DIR ${sophus_SOURCE_DIR})
 endif()
 
 add_library(polycal_ekf STATIC
     src/ekf.cpp
     src/cusum.cpp)
-
-set_target_properties(polycal_ekf PROPERTIES
-    POSITION_INDEPENDENT_CODE ON)
 
 target_include_directories(polycal_ekf
     PUBLIC
