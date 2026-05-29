@@ -38,6 +38,9 @@ add_library(polycal_ekf STATIC
     src/ekf.cpp
     src/cusum.cpp)
 
+set_target_properties(polycal_ekf PROPERTIES
+    POSITION_INDEPENDENT_CODE ON)
+
 target_include_directories(polycal_ekf
     PUBLIC
         include

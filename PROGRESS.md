@@ -4,6 +4,37 @@ Log of work sessions on polycal. Newest entry on top. See `AGENTS.md` §7 for en
 
 ---
 
+## 2026-05-29 — codex — C++ PIC static library fix
+
+**Worked on**: Fixed the C++ static library build so `polycal_ekf` can link into the pybind11 shared module on Linux.
+
+**Completed**:
+- Added `POSITION_INDEPENDENT_CODE ON` to the `polycal_ekf` target in `cpp/CMakeLists.txt`.
+- Verified clean C++ build from `rm -rf build`.
+- Verified `cmake -S . -B build -G Ninja` in `cpp` succeeds.
+- Verified `cmake --build build` in `cpp` succeeds.
+- Verified `./build/test_ekf` passes: 13 tests passed.
+
+**Attempted but did not work**:
+- None.
+
+**Decisions made**:
+- Enabled PIC on `polycal_ekf` for all platforms rather than conditionalizing on Linux, because it is required for shared-module linking and harmless on macOS.
+
+**Open questions raised**:
+- None.
+
+**Next session — priorities in order**:
+1. Re-run Ubuntu CI to confirm the pybind11 link failure is fixed.
+2. Add gitignore/build hygiene for generated `_polycal_cpp*.so` artifacts if desired.
+3. Port closed-form `J_r(r)^{-1}` from Python to C++ so backend parity can cover nonzero-residual EKF updates.
+
+**Files touched**:
+- `cpp/CMakeLists.txt`
+- `PROGRESS.md`
+
+---
+
 ## 2026-05-29 — codex — pybind11 C++ backend bindings
 
 **Worked on**: Added pybind11 bindings for the C++ EKF and CUSUM detector, then added Python backend-selection wrappers and parity tests.
